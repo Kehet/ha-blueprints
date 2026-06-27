@@ -1,0 +1,171 @@
+blueprint:
+  name: Hue Dimmer Switch — Time-of-Day Scenes
+  description: >
+    Hue RWL dimmer: button 1 activates a scene based on time of day,
+    buttons 2/3 step brightness up/down, button 4 turns off lights.
+    Time windows are fixed — morning 07–10, day 10–17, afternoon 17–20,
+    evening 20–23, night default (23–07).
+  domain: automation
+  input:
+    button_1:
+      name: Button 1 — On
+      selector:
+        entity:
+          domain: event
+    button_2:
+      name: Button 2 — Brightness up
+      selector:
+        entity:
+          domain: event
+    button_3:
+      name: Button 3 — Brightness down
+      selector:
+        entity:
+          domain: event
+    button_4:
+      name: Button 4 — Off
+      selector:
+        entity:
+          domain: event
+    scene_morning:
+      name: Morning scene (07:00–10:00)
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    scene_day:
+      name: Day scene (10:00–17:00)
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    scene_afternoon:
+      name: Afternoon scene (17:00–20:00)
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    scene_evening:
+      name: Evening scene (20:00–23:00)
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    scene_night:
+      name: Night scene (default, 23:00–07:00)
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    light_areas:
+      name: Light areas
+      description: Areas controlled by buttons 2 (dim up), 3 (dim down), 4 (off)
+      selector:
+        area:
+          multiple: true
+
+triggers:
+  - trigger: state
+    entity_id: !input button_1
+    id: btn_on
+  - trigger: state
+    entity_id: !input button_2
+    id: btn_bright_up
+  - trigger: state
+    entity_id: !input button_3
+    id: btn_bright_down
+  - trigger: state
+    entity_id: !input button_4
+    id: btn_off
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: btn_on
+          - condition: state
+            entity_id: !input button_1
+            attribute: event_type
+            state: short_release
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: time
+                    after: "07:00:00"
+                    before: "10:00:00"
+                sequence:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: !input scene_morning
+              - conditions:
+                  - condition: time
+                    after: "10:00:00"
+                    before: "17:00:00"
+                sequence:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: !input scene_day
+              - conditions:
+                  - condition: time
+                    after: "17:00:00"
+                    before: "20:00:00"
+                sequence:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: !input scene_afternoon
+              - conditions:
+                  - condition: time
+                    after: "20:00:00"
+                    before: "23:00:00"
+                sequence:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: !input scene_evening
+            default:
+              - action: scene.turn_on
+                target:
+                  entity_id: !input scene_night
+      - conditions:
+          - condition: trigger
+            id: btn_bright_up
+          - condition: state
+            entity_id: !input button_2
+            attribute: event_type
+            state:
+              - initial_press
+              - repeat
+        sequence:
+          - action: light.turn_on
+            target:
+              area_id: !input light_areas
+            data:
+              brightness_step_pct: 10
+      - conditions:
+          - condition: trigger
+            id: btn_bright_down
+          - condition: state
+            entity_id: !input button_3
+            attribute: event_type
+            state:
+              - initial_press
+              - repeat
+        sequence:
+          - action: light.turn_on
+            target:
+              area_id: !input light_areas
+            data:
+              brightness_step_pct: -10
+      - conditions:
+          - condition: trigger
+            id: btn_off
+          - condition: state
+            entity_id: !input button_4
+            attribute: event_type
+            state: short_release
+        sequence:
+          - action: light.turn_off
+            target:
+              area_id: !input light_areas
+
+mode: single
+max_exceeded: silent
